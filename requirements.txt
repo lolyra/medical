@@ -1,0 +1,11 @@
+matplotlib==3.8.2
+medmnist==2.2.3
+numpy==1.26.2
+Pillow==10.1.0
+scikit-image==0.22.0
+scikit-learn==1.3.2
+scipy==1.11.4
+timm==0.9.12
+torch==2.1.1
+torchvision==0.16.1
+tqdm==4.66.1
