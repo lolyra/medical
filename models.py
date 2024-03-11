@@ -3,18 +3,21 @@ import timm
 import math
 import numpy
 import pickle
+import os
 
 from torch import nn
 from sklearn.mixture import GaussianMixture
-from converter import convert_model_to_3d
 
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+from converter import convert_model_to_3d
+from variables import *
 
 class FisherLayer(nn.Module):
     def __init__(self, params):
         super(FisherLayer, self).__init__()
-        self.gmm = GaussianMixture(len(params[0]),covariance_type='diag')
-        self.gmm._set_parameters(params)
+        self.gmm = GaussianMixture(len(params['weights']), covariance_type='diag')
+        self.gmm._set_parameters(
+            (params['weights'],params['means'],params['covars'],params['precision'])
+        )
 
     def _get_shape(self, dim):
         return (2*dim+1)*self.gmm.n_components
@@ -62,52 +65,35 @@ class FisherLayer(nn.Module):
         x = torch.sign(x)*torch.sqrt(torch.abs(x)) # Power normalization
         x = x / torch.linalg.norm(x, axis=1).reshape(-1,1) #L2 normalization
         return x.float()
-        
 
-MODEL = 'efficientvit_b2'
 
 class FisherNet(nn.Module):
-    def __init__(self, ds_info, path, features_only=False, load_classifier=False):
+    def __init__(self, ds_info, feature_size=0, load_classifier=False):
         super(FisherNet, self).__init__()
         self.net = timm.create_model(MODEL, in_chans=ds_info['n_channels'], num_classes=ds_info['n_classes'])
         if ds_info['n_dims'] == 3:
-            self.net = convert_model_to_3d(self.net)
-            
-        params = torch.load(path)
-        self.net.load_state_dict(params['net'],strict=True)
-        self.net.eval()
+            self.net = convert_model_to_3d(self.net) 
 
-        if features_only:
+        path = os.path.join(NET_DIR,ds_info['name']+'.pth')
+        params = torch.load(path, map_location='cpu')
+        self.net.load_state_dict(params,strict=True)
+        self.net.eval()
+        
+        if feature_size == 0:
             self.fisher_vector = torch.nn.Identity()
             self.net.head.classifier = torch.nn.Identity()
         else:
-            assert 'gmm' in params, "GMM not found"
-            self.fisher_vector = FisherLayer(params['gmm'])
-            #in_shape = self.net.stages[2].blocks[-1].local_module.main.point_conv.norm.num_features
-            in_shape = self.net.stages[1].blocks[-1].main.point_conv.norm.num_features
-            in_shape = self.fisher_vector._get_shape(in_shape)
+            path = os.path.join(GMM_DIR,ds_info['name']+'.npz')
+            params = numpy.load(path)
+            self.fisher_vector = FisherLayer(params)
+            in_shape = self.fisher_vector._get_shape(feature_size)
             out_shape = self.net.head.classifier[0].out_features
             bias = self.net.head.classifier[0].bias
             self.net.head.classifier[0] = torch.nn.Linear(in_shape, out_shape, bias)
             if load_classifier:
-                assert 'cfv' in params, "Classifier weights not found"
-                self.net.head.classifier.load_state_dict(params['cfv'],strict=True)
-    
-    def local_features(self, x):
-        x = self.net.stem(x)
-        x = self.net.stages[0](x)
-        x = self.net.stages[1](x)
-        w = self.net.stages[2](x)
-        v = self.net.stages[3](w)
-        N = x.shape[0]
-        D = x.shape[1]
-        x = torch.cat((
-            x.reshape(N,D,-1),
-            w.reshape(N,D,-1),
-            v.reshape(N,D,-1),
-        ),2)
-        x = x.swapaxes(1,2)
-        return x
+                path = os.path.join(CLF_DIR,ds_info['name']+'.pth')
+                params = torch.load(path, map_location='cpu')
+                self.net.head.classifier.load_state_dict(params, strict=True)
 
     def forward(self, x):
         with torch.no_grad():
@@ -115,3 +101,73 @@ class FisherNet(nn.Module):
             x = self.fisher_vector(x)
         x = self.net.head.classifier(x)
         return x
+
+    def state_dict(self):
+        return self.net.head.classifier.state_dict()
+
+    def train(self):
+        self.net.head.classifier.train()
+        return self
+
+    def eval(self):
+        self.net.eval()
+        self.fisher_vector.eval()
+        return self
+
+    def parameters(self):
+        return self.net.head.classifier.parameters()
+
+
+class FisherNetL1(FisherNet):
+    def local_features(self, x):
+        x = self.net.stem(x)
+        x = self.net.stages[0](x)
+        x = self.net.stages[1](x)
+        x = self.net.stages[2](x)
+        x = self.net.stages[3](x)
+        N = x.shape[0]
+        D = x.shape[1]
+        x = x.reshape(N,D,-1).swapaxes(1,2)
+        return x
+
+class FisherNetL2(FisherNet):
+    def local_features(self, x):
+        x = self.net.stem(x)
+        x = self.net.stages[0](x)
+        x = self.net.stages[1](x)
+        x = self.net.stages[2](x)
+        y = self.net.stages[3](x)
+        N = x.shape[0]
+        D = x.shape[1]
+        x = torch.cat((
+            x.reshape(N,D,-1),
+            y.reshape(N,D,-1),
+        ),2)
+        x = x.swapaxes(1,2)
+        return x
+
+class FisherNetL3(FisherNet):
+    def local_features(self, x):
+        x = self.net.stem(x)
+        x = self.net.stages[0](x)
+        x = self.net.stages[1](x)
+        y = self.net.stages[2](x)
+        z = self.net.stages[3](y)
+        N = x.shape[0]
+        D = x.shape[1]
+        x = torch.cat((
+            x.reshape(N,D,-1),
+            y.reshape(N,D,-1),
+            z.reshape(N,D,-1),
+        ),2)
+        x = x.swapaxes(1,2)
+        return x
+
+def create_model(ds_info, features_only=False, load_classifier=False):
+    if NUM_LAYERS == 1:
+        return FisherNetL1(ds_info, (not features_only)*384, load_classifier)
+    if NUM_LAYERS == 2:
+        return FisherNetL2(ds_info, (not features_only)*192, load_classifier)
+    if NUM_LAYERS == 3:
+        return FisherNetL3(ds_info, (not features_only)*96, load_classifier)
+    raise Exception("Invalid number of layers")

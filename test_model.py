@@ -6,14 +6,15 @@ import medmnist
 import torch
 
 from datasets import load_dataset
-from models import DEVICE, MODEL
+from variables import *
 from converter import convert_model_to_3d
 from train_model import test
 
-def main(data_name, file_name, image_size, batch_size):
+
+def main(data_name):
     
     print('Preparing data...')
-    ds_data, ds_info = load_dataset(data_name, image_size, batch_size)
+    ds_data, ds_info = load_dataset(data_name)
     evaluator = medmnist.Evaluator(data_name, 'test')
     
     print('Building model...')
@@ -25,9 +26,9 @@ def main(data_name, file_name, image_size, batch_size):
     if ds_info['n_dims'] == 3:
         model = convert_model_to_3d(model)
 
-    path = os.path.join(os.environ['HOME'],'data',data_name,file_name)
+    path = os.path.join(NET_DIR, data_name + '.pth')
     params = torch.load(path)
-    model.load_state_dict(params['net'])
+    model.load_state_dict(params)
     model.to(DEVICE)
     
     print('Testing model...')
@@ -41,24 +42,9 @@ if __name__ == "__main__":
     parser.add_argument('-d','--dataset',
                         required=True,
                         type=str)
-    parser.add_argument('-f','--file',
-                        required=True,
-                        type=str)
-    parser.add_argument('--image_size',
-                        default=224,
-                        type=int)
-    parser.add_argument('--batch_size',
-                        default=16,
-                        type=int)
-    parser.add_argument('--num_epochs',
-                        default=10,
-                        type=int)
 
     args = parser.parse_args()
     main(
         args.dataset,
-        args.file,
-        args.image_size,
-        args.batch_size,
     )
 

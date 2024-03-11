@@ -4,17 +4,17 @@ import argparse
 import os
 
 from datasets import load_dataset
-from models import FisherNet, DEVICE
+from models import create_model
 from train_model import test
+from variables import *
 
-def main(data_name, file_name, image_size, batch_size):
+def main(data_name):
     print('Preparing data...')
-    ds_data, ds_info = load_dataset(data_name,image_size,batch_size)
+    ds_data, ds_info = load_dataset(data_name)
     evaluator = medmnist.Evaluator(data_name, 'test')
 
     print('Building model...')
-    path = os.path.join(os.environ['HOME'],'data',data_name,file_name)
-    model = FisherNet(ds_info, path, load_classifier=True).to(DEVICE)
+    model = create_model(ds_info, load_classifier=True).to(DEVICE)
 
     print('Testing model...')
     auc, acc = test(model, ds_data['test'], ds_info['task'], evaluator)
@@ -26,20 +26,8 @@ if __name__ == "__main__":
     parser.add_argument('-d','--dataset',
                         required=True,
                         type=str)
-    parser.add_argument('-f','--file',
-                        required=True,
-                        type=str)
-    parser.add_argument('--image_size',
-                        default=224,
-                        type=int)
-    parser.add_argument('--batch_size',
-                        default=16,
-                        type=int)
 
     args = parser.parse_args()
     main(
         args.dataset,
-        args.file,
-        args.image_size,
-        args.batch_size,
     )
