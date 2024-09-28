@@ -75,7 +75,7 @@ class FisherNet(nn.Module):
             self.net = convert_model_to_3d(self.net) 
 
         path = os.path.join(NET_DIR,ds_info['name']+'.pth')
-        params = torch.load(path, map_location='cpu')
+        params = torch.load(path, map_location='cpu', weights_only=True)
         self.net.load_state_dict(params,strict=True)
         self.net.eval()
         
@@ -92,7 +92,7 @@ class FisherNet(nn.Module):
             self.net.head.classifier[0] = torch.nn.Linear(in_shape, out_shape, bias)
             if load_classifier:
                 path = os.path.join(CLF_DIR,ds_info['name']+'.pth')
-                params = torch.load(path, map_location='cpu')
+                params = torch.load(path, map_location='cpu', weights_only=True)
                 self.net.head.classifier.load_state_dict(params, strict=True)
 
     def forward(self, x):
@@ -135,8 +135,8 @@ class FisherNetL2(FisherNet):
         x = self.net.stem(x)
         x = self.net.stages[0](x)
         x = self.net.stages[1](x)
-        x = self.net.stages[2](x)
-        y = self.net.stages[3](x)
+        y = self.net.stages[2](x)
+        y = self.net.stages[3](y)
         N = x.shape[0]
         D = x.shape[1]
         x = torch.cat((
@@ -167,7 +167,7 @@ def create_model(ds_info, features_only=False, load_classifier=False):
     if NUM_LAYERS == 1:
         return FisherNetL1(ds_info, (not features_only)*384, load_classifier)
     if NUM_LAYERS == 2:
-        return FisherNetL2(ds_info, (not features_only)*192, load_classifier)
+        return FisherNetL2(ds_info, (not features_only)*96, load_classifier)
     if NUM_LAYERS == 3:
         return FisherNetL3(ds_info, (not features_only)*96, load_classifier)
     raise Exception("Invalid number of layers")

@@ -1,7 +1,4 @@
-import medmnist
-import torch
 import argparse
-import os
 
 from datasets import load_dataset
 from models import create_model
@@ -11,13 +8,12 @@ from variables import *
 def main(data_name):
     print('Preparing data...')
     ds_data, ds_info = load_dataset(data_name)
-    evaluator = medmnist.Evaluator(data_name, 'test')
 
     print('Building model...')
     model = create_model(ds_info, load_classifier=True).to(DEVICE)
 
     print('Testing model...')
-    auc, acc = test(model, ds_data['test'], ds_info['task'], evaluator)
+    auc, acc = test(model, ds_data['test'], ds_info['task'])
     print('test auc: {:.3f}  acc: {:.3f}'.format(auc,acc))
 
 if __name__ == "__main__":

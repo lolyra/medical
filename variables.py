@@ -12,6 +12,7 @@ NET_EPOCHS = 10 # Epochs for backbone fine-tuning, 0 means no fine-tuning
 CLF_EPOCHS = 10
 
 ROOT_DIR = os.path.join(os.environ['HOME'],'data','models')
+DATA_DIR = os.path.join(os.environ['HOME'],'data','datasets')
 NET_DIR = os.path.join(ROOT_DIR, 'pretrained' if NET_EPOCHS == 0 else 'finetuned', 'backbone')
 GMM_DIR = os.path.join(ROOT_DIR, 'pretrained' if NET_EPOCHS == 0 else 'finetuned', f'L{NUM_LAYERS}')
 CLF_DIR = GMM_DIR

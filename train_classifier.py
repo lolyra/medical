@@ -1,9 +1,6 @@
-import medmnist
 import torch
 import argparse
 import os
-
-from tqdm import tqdm
 
 from datasets import load_dataset
 from models import create_model
@@ -21,8 +18,6 @@ def main(data_name):
 
     print('Building model...')
     model = create_model(ds_info).to(DEVICE)
-    
-    evaluator = medmnist.Evaluator(data_name, 'val')
 
     optimizer = torch.optim.RAdam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
@@ -34,7 +29,7 @@ def main(data_name):
         print(f"Epoch {epoch+1}")
         train_loss = train(model, ds_data['train'], ds_info['task'], optimizer)
         print("train loss: {:.5f}".format(train_loss))
-        val_metrics = test(model, ds_data['val'], ds_info['task'], evaluator)
+        val_metrics = test(model, ds_data['val'], ds_info['task'])
         print('val auc: {:.5f}  acc: {:.5f}'.format(*val_metrics))
         scheduler.step()
         

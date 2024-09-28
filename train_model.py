@@ -2,11 +2,10 @@ import argparse
 import os
 
 import timm
-import medmnist
 import torch
 
-from copy import deepcopy
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score, accuracy_score
 
 from datasets import load_dataset
 from converter import convert_model_to_3d
@@ -36,8 +35,6 @@ def main(data_name, repeat_axis):
         print('Training model...')
         model = model.to(DEVICE)
     
-        evaluator = medmnist.Evaluator(data_name, 'val')
-    
         optimizer = torch.optim.RAdam(model.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
     
@@ -47,7 +44,7 @@ def main(data_name, repeat_axis):
             print(f"Epoch {epoch+1}")
             train_loss = train(model, ds_data['train'], ds_info['task'], optimizer)
             print("train loss: {:.5f}".format(train_loss))
-            val_metrics = test(model, ds_data['val'], ds_info['task'], evaluator)
+            val_metrics = test(model, ds_data['val'], ds_info['task'])
             print('val auc: {:.5f}  acc: {:.5f}'.format(*val_metrics))
             scheduler.step()
             
@@ -73,7 +70,9 @@ def train(model, data_loader, task, optimizer):
             targets = targets.to(torch.float32).to(DEVICE)
         else:
             criterion = torch.nn.CrossEntropyLoss()
-            targets = torch.squeeze(targets, 1).long().to(DEVICE)
+            if targets.dim() == 2:
+                targets = torch.squeeze(targets, 1).long()
+            targets = targets.to(DEVICE)
             
         loss = criterion(outputs, targets)
         total_loss.append(loss.item())
@@ -84,9 +83,10 @@ def train(model, data_loader, task, optimizer):
     return epoch_loss
 
 
-def test(model, data_loader, task, evaluator):
+def test(model, data_loader, task):
     model.eval()
     y_score = torch.tensor([])
+    y_true = torch.tensor([])
     pbar = tqdm(total=len(data_loader.dataset), ascii=' >=')
     with torch.no_grad():
         for inputs, targets in data_loader:
@@ -100,9 +100,10 @@ def test(model, data_loader, task, evaluator):
             
             outputs = m(outputs)
             y_score = torch.cat((y_score, outputs.cpu()), 0)
-        y_score = y_score.numpy()
+            y_true = torch.cat((y_true, targets), 0)
     pbar.close()
-    auc, acc = evaluator.evaluate(y_score)
+    auc = roc_auc_score(y_true.numpy(), y_score[:,1].numpy())
+    acc = accuracy_score(y_true.numpy(), torch.argmax(y_score,dim=1).numpy())
     return [auc, acc]
 
 if __name__ == "__main__":
