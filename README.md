@@ -1,4 +1,4 @@
-# Medical image classification with multilevel transformer-based deep filter banks
+# Enhancing Hybrid CNN-ViT Models with Fisher Vector Encoding for Scalable Medical Image Classification
 
 In order to execute the code, it is necessary to have Python>=3.9 installed as well as the packages listed in `requirements.txt`.
 
