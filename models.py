@@ -135,8 +135,8 @@ class FisherNetL2(FisherNet):
         x = self.net.stem(x)
         x = self.net.stages[0](x)
         x = self.net.stages[1](x)
-        y = self.net.stages[2](x)
-        y = self.net.stages[3](y)
+        x = self.net.stages[2](x)
+        y = self.net.stages[3](x)
         N = x.shape[0]
         D = x.shape[1]
         x = torch.cat((
@@ -167,7 +167,7 @@ def create_model(ds_info, features_only=False, load_classifier=False):
     if NUM_LAYERS == 1:
         return FisherNetL1(ds_info, (not features_only)*384, load_classifier)
     if NUM_LAYERS == 2:
-        return FisherNetL2(ds_info, (not features_only)*96, load_classifier)
+        return FisherNetL2(ds_info, (not features_only)*192, load_classifier)
     if NUM_LAYERS == 3:
         return FisherNetL3(ds_info, (not features_only)*96, load_classifier)
     raise Exception("Invalid number of layers")

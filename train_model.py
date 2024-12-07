@@ -3,6 +3,7 @@ import os
 
 import timm
 import torch
+import numpy
 
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score
@@ -15,6 +16,7 @@ from variables import *
 def main(data_name, repeat_axis):
     lr = 0.001
     gamma=0.1
+    torch.manual_seed(0)
     milestones = [0.5 * NET_EPOCHS, 0.75 * NET_EPOCHS]
 
     print('Preparing data...')
@@ -87,23 +89,35 @@ def test(model, data_loader, task):
     model.eval()
     y_score = torch.tensor([])
     y_true = torch.tensor([])
+
     pbar = tqdm(total=len(data_loader.dataset), ascii=' >=')
     with torch.no_grad():
         for inputs, targets in data_loader:
             outputs = model(inputs.to(DEVICE))
             pbar.update(outputs.shape[0])
-            
+
             if task == "multi-label, binary-class":
                 m = torch.nn.Sigmoid()
             else:
                 m = torch.nn.Softmax(dim=1)
-            
+
             outputs = m(outputs)
             y_score = torch.cat((y_score, outputs.cpu()), 0)
             y_true = torch.cat((y_true, targets), 0)
     pbar.close()
-    auc = roc_auc_score(y_true.numpy(), y_score[:,1].numpy())
-    acc = accuracy_score(y_true.numpy(), torch.argmax(y_score,dim=1).numpy())
+
+    y_true = y_true.numpy()
+    if task == 'binary-class':
+        y_pred = torch.argmax(y_score, dim=1)
+        y_score = y_score[:,1].numpy()
+    elif task == "multi-label, binary-class":
+        y_score = y_score.numpy()
+        y_pred = numpy.array(list(map(round, y_score.reshape(-1)))).reshape(y_score.shape[0],-1)
+    else:
+        y_score = y_score.numpy()
+        y_pred = numpy.argmax(y_score, axis=1)
+    auc = roc_auc_score(y_true, y_score, multi_class='ovr')
+    acc = accuracy_score(y_true, y_pred)
     return [auc, acc]
 
 if __name__ == "__main__":

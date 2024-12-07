@@ -10,6 +10,7 @@ from datasets import load_entropy
 from models import create_model
 from variables import *
 
+numpy.random.seed(0)
 
 def main(data_name, n_kernels):
     ''' Fit GMM model '''

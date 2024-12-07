@@ -27,4 +27,10 @@ python test_model.py -d <dataset-name>
 python test_classifier.py -d <dataset-name>
 ```
 
+Fine-tuning and testing other models in the literature. Models must be implemented in [timm library](https://github.com/huggingface/pytorch-image-models).
+
+```
+python test.py -d <dataset-name> -m <model-name>
+```
+
 Parameters can be adjusted in `variables.py`.
